@@ -979,7 +979,7 @@ a { color: inherit; text-decoration: none; }
 .obs-now-empty .obs-input {
   font-size: 1rem;
   padding: 0.7rem 0.9rem;
-  background: rgb(var(--phos) / 0.08);
+  background: rgb(var(--phos) / 0.2);
   border-color: rgb(var(--rule) / 0.5);
   min-width: 12rem;
 }
@@ -987,6 +987,13 @@ a { color: inherit; text-decoration: none; }
   color: rgb(var(--body));
   letter-spacing: 0.18em;
   text-transform: uppercase;
+}
+/* Restore the focus-indicator border. `.obs-input:focus` sets full phos, but
+   `.obs-now-empty .obs-input` has equal specificity and later source order,
+   so it silently clobbers the focused border back to the grey empty-state
+   color. This selector's +1 pseudo-class cleanly beats it. */
+.obs-now-empty .obs-input:focus {
+  border-color: rgb(var(--phos));
 }
 .obs-now-empty .obs-btn-primary {
   font-size: 0.78rem;
