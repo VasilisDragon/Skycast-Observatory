@@ -137,6 +137,13 @@ export function SkyHeader({ condition, bundle, units }: SkyHeaderProps) {
             {SECTION_LABELS[id]}
           </a>
         ))}
+        {/* Cross-route link, not an in-page anchor. Renders regardless of
+            bundle state so a user with no ZIP can still reach the aviation
+            picker. App.tsx's isAviationPath gate swaps to <AviationApp /> on
+            full-page nav — intentional; no SPA handoff is needed. */}
+        <a href="/aviation" title="Aviation briefing: METAR, TAF, hazards">
+          Aviation ↗
+        </a>
       </nav>
 
       <div className="obs-statusbar-ticker" aria-hidden="true">
