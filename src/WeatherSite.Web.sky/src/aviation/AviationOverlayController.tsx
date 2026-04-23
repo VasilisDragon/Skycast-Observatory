@@ -419,11 +419,22 @@ function scaffoldLayers(map: MapLibreMap) {
 }
 
 function teardownLayers(map: MapLibreMap) {
-  for (const layerId of ALL_LAYERS) {
-    if (map.getLayer(layerId)) map.removeLayer(layerId);
-  }
-  for (const sourceId of ALL_SOURCES) {
-    if (map.getSource(sourceId)) map.removeSource(sourceId);
+  // Teardown runs in a React cleanup. If the parent unmount disposed the
+  // MapLibre instance first (map.remove() nulls map.style internally), any
+  // subsequent getLayer/getSource call reaches through undefined and throws
+  // "Cannot read properties of undefined (reading 'getLayer')". Layers and
+  // sources are gone with the map in that case — nothing left to clean up —
+  // so swallow and exit. Race-proof; a liveness check between guard and call
+  // could still lose to an async dispose.
+  try {
+    for (const layerId of ALL_LAYERS) {
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+    }
+    for (const sourceId of ALL_SOURCES) {
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
+    }
+  } catch {
+    // See comment above.
   }
 }
 
