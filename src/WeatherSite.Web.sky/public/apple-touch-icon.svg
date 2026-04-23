@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <defs>
+    <radialGradient id="sky" cx="30%" cy="22%" r="110%">
+      <stop offset="0%" stop-color="#7CD3FF"/>
+      <stop offset="58%" stop-color="#142642"/>
+      <stop offset="100%" stop-color="#080c16"/>
+    </radialGradient>
+    <linearGradient id="arc" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#A8C4FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="40" fill="url(#sky)"/>
+  <path d="M90 34a56 56 0 1 0 0 112 40 40 0 0 1 0-80 56 56 0 0 0 0-32z" fill="url(#arc)"/>
+</svg>

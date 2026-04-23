@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="sky" cx="18%" cy="14%" r="90%">
+      <stop offset="0%" stop-color="#7CD3FF" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#142642"/>
+      <stop offset="100%" stop-color="#050810"/>
+    </radialGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="markArc" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#A8C4FF"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#sky)"/>
+  <rect width="1200" height="220" fill="url(#glow)"/>
+
+  <g transform="translate(88 96)">
+    <path d="M60 0A60 60 0 1 0 60 120 42 42 0 0 1 60 36 60 60 0 0 0 60 0z" fill="url(#markArc)"/>
+  </g>
+
+  <text x="232" y="195" font-family="Georgia, 'Times New Roman', serif" font-size="84" font-weight="500" fill="#F4F7FC" letter-spacing="-1.2">
+    Skycast
+  </text>
+  <text x="232" y="255" font-family="Helvetica, Arial, sans-serif" font-size="30" fill="#7CD3FF" letter-spacing="6" text-transform="uppercase">
+    LIVE U.S. WEATHER DASHBOARD
+  </text>
+
+  <g transform="translate(88 380)">
+    <text x="0" y="0" font-family="Georgia, 'Times New Roman', serif" font-size="56" fill="#F4F7FC" letter-spacing="-0.8">
+      Radar. Forecast.
+    </text>
+    <text x="0" y="72" font-family="Georgia, 'Times New Roman', serif" font-size="56" fill="#F4F7FC" letter-spacing="-0.8">
+      Alerts. One sky.
+    </text>
+  </g>
+
+  <g transform="translate(860 400)">
+    <rect x="0" y="0" width="250" height="150" rx="20" fill="#0B1223" stroke="#7CD3FF" stroke-opacity="0.35"/>
+    <text x="24" y="38" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#7CD3FF" letter-spacing="3">NOW</text>
+    <text x="24" y="108" font-family="Georgia, 'Times New Roman', serif" font-size="84" fill="#FFFFFF" letter-spacing="-2">72°</text>
+    <text x="24" y="136" font-family="Helvetica, Arial, sans-serif" font-size="16" fill="#A8C4FF">Clear · Chicago</text>
+  </g>
+
+  <text x="88" y="580" font-family="Helvetica, Arial, sans-serif" font-size="20" fill="#94A0B2" letter-spacing="2">
+    weather.vasilis.club
+  </text>
+</svg>

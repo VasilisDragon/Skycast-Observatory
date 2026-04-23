@@ -1,0 +1,327 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --storm-ink: #06101b;
+  --storm-deep: #0a1728;
+  --storm-panel: rgba(10, 18, 31, 0.72);
+  --storm-line: rgba(165, 221, 255, 0.12);
+  --storm-rain: #5fe0ff;
+  --storm-glow: #8ef4ff;
+  --storm-blue: #5f84ff;
+  --storm-text: #eaf4ff;
+  --storm-muted: rgba(219, 232, 246, 0.7);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", "Segoe UI Variable Text", "Trebuchet MS", sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(95, 224, 255, 0.22), transparent 26%),
+    radial-gradient(circle at 80% 0%, rgba(71, 107, 232, 0.24), transparent 30%),
+    linear-gradient(180deg, #06101b 0%, #08131f 42%, #050d16 100%);
+  color: var(--storm-text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.storm-noise {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(circle at center, black 60%, transparent 100%);
+  opacity: 0.25;
+}
+
+.storm-nav {
+  @apply mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/10 bg-white/5 px-5 py-4 shadow-glass backdrop-blur-2xl lg:mb-8;
+}
+
+.storm-nav-link {
+  @apply rounded-full border border-white/10 px-4 py-2 transition hover:border-rain/40 hover:bg-white/5 hover:text-white;
+}
+
+.storm-eyebrow {
+  @apply text-xs uppercase tracking-[0.32em] text-rain/80;
+}
+
+.storm-hero {
+  @apply rounded-[2.25rem] border border-white/10 bg-white/5 p-6 shadow-glass backdrop-blur-2xl sm:p-8 xl:p-9;
+}
+
+.storm-hero-side {
+  background:
+    radial-gradient(circle at top right, rgba(95, 224, 255, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(11, 24, 41, 0.88), rgba(6, 16, 28, 0.92));
+}
+
+.storm-hero-title {
+  @apply mt-4 max-w-4xl text-4xl font-semibold leading-tight text-white md:text-5xl;
+}
+
+.storm-hero-copy {
+  @apply mt-5 max-w-3xl text-base leading-8 text-mist/75 md:text-lg;
+}
+
+.storm-form-label {
+  @apply mb-3 block text-sm font-medium text-mist/75;
+}
+
+.storm-input {
+  @apply w-full rounded-[1.2rem] border border-white/10 bg-slate-950/60 px-4 py-3 text-white outline-none ring-0 transition placeholder:text-mist/40 focus:border-rain/40 focus:bg-slate-950/80;
+}
+
+.storm-button {
+  @apply inline-flex items-center justify-center rounded-[1.15rem] border border-rain/35 bg-rain/15 px-5 py-3 text-sm font-medium text-white transition hover:border-rain/60 hover:bg-rain/20 disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.storm-button-secondary {
+  @apply border-white/10 bg-white/5 text-mist/85 hover:border-white/20 hover:bg-white/10;
+}
+
+.storm-card {
+  @apply rounded-[2rem] border border-white/10 bg-white/5 shadow-glass backdrop-blur-2xl;
+}
+
+.storm-section-title {
+  @apply flex flex-wrap items-start justify-between gap-4;
+}
+
+.storm-section-title h2 {
+  @apply mt-2 max-w-4xl text-3xl font-semibold leading-tight text-white;
+}
+
+.storm-toggle {
+  @apply inline-flex rounded-full border border-white/10 bg-white/5 p-1;
+}
+
+.storm-toggle button {
+  @apply rounded-full px-4 py-2 text-sm text-mist/70 transition;
+}
+
+.storm-toggle button.is-active {
+  @apply bg-white/10 text-white;
+}
+
+.storm-forecast-card {
+  @apply rounded-[1.6rem] border border-white/10 bg-black/20 p-4;
+}
+
+.storm-alert-card {
+  @apply rounded-[1.45rem] border p-4;
+}
+
+.storm-alert-card.tone-critical {
+  @apply border-rose-400/35 bg-rose-500/10;
+}
+
+.storm-alert-card.tone-warning {
+  @apply border-amber-300/30 bg-amber-400/10;
+}
+
+.storm-alert-card.tone-info {
+  @apply border-sky-300/25 bg-sky-400/10;
+}
+
+.storm-chip {
+  @apply rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em] text-mist/70;
+}
+
+.storm-story-card {
+  @apply rounded-[1.45rem] border border-white/10 bg-black/20 p-4;
+}
+
+.storm-empty-state,
+.storm-empty-hero,
+.storm-loader,
+.storm-error {
+  @apply rounded-[1.5rem] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-mist/75;
+}
+
+.storm-error {
+  @apply border-rose-400/25 bg-rose-500/10 text-rose-100;
+}
+
+.storm-loader-panel {
+  @apply storm-card p-8;
+}
+
+.storm-map-shell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    radial-gradient(circle at top, rgba(95, 224, 255, 0.18), transparent 26%),
+    linear-gradient(180deg, rgba(5, 15, 28, 0.96), rgba(4, 10, 19, 0.98));
+  min-height: 18rem;
+}
+
+.storm-map-canvas {
+  min-height: inherit;
+  height: 100%;
+  width: 100%;
+}
+
+.storm-map-topline {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(233, 242, 255, 0.7);
+}
+
+.storm-map-wash {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.2) 100%),
+    linear-gradient(180deg, rgba(2, 8, 15, 0.2), rgba(2, 8, 15, 0.4));
+}
+
+.storm-map-note,
+.storm-map-empty {
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  z-index: 2;
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(7, 17, 28, 0.72);
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: rgba(231, 240, 255, 0.78);
+  backdrop-filter: blur(14px);
+}
+
+.storm-map-note {
+  bottom: 1rem;
+}
+
+.storm-map-empty {
+  bottom: 4.75rem;
+}
+
+.storm-layer-row {
+  @apply w-full rounded-[1.3rem] border border-white/10 bg-black/20 p-3 transition hover:border-white/20 hover:bg-white/5;
+}
+
+.storm-layer-row.is-active {
+  @apply border-rain/25 bg-rain/5;
+}
+
+.storm-layer-row.is-focused {
+  box-shadow: inset 0 0 0 1px rgba(142, 244, 255, 0.2);
+}
+
+.storm-range {
+  width: 100%;
+  accent-color: var(--storm-rain);
+}
+
+.storm-chip-button {
+  @apply rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-mist/75 transition hover:border-rain/35 hover:bg-rain/10 hover:text-white;
+}
+
+.maplibregl-ctrl-group {
+  background: rgba(7, 18, 29, 0.78) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+}
+
+.maplibregl-ctrl button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
+@media (max-width: 960px) {
+  .storm-nav {
+    @apply rounded-[1.65rem] px-4 py-3;
+  }
+
+  .storm-hero {
+    @apply rounded-[1.85rem] p-5;
+  }
+
+  .storm-section-title h2 {
+    @apply text-2xl;
+  }
+
+  .storm-hero-title {
+    @apply text-4xl;
+  }
+
+  .storm-map-shell {
+    min-height: 16rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .storm-hero-title {
+    @apply text-[2.2rem];
+  }
+
+  .storm-hero-copy {
+    @apply text-[0.98rem] leading-7;
+  }
+
+  .storm-section-title {
+    @apply flex-col items-stretch;
+  }
+
+  .storm-map-topline {
+    left: 0.75rem;
+    top: 0.75rem;
+    right: 0.75rem;
+    gap: 0.5rem;
+    font-size: 0.64rem;
+    letter-spacing: 0.2em;
+  }
+
+  .storm-map-note,
+  .storm-map-empty {
+    left: 0.75rem;
+    right: 0.75rem;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.8rem;
+  }
+}

@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <SpaRoot>..\WeatherSite.Web.sky\</SpaRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\data\zip\zcta-centroids.json">
+      <Link>App_Data\zcta-centroids.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="..\..\data\airports\airports.json">
+      <Link>App_Data\airports.json</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="BuildFrontendForPublish" BeforeTargets="ComputeFilesToPublish">
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
+  </Target>
+
+  <Target Name="RestoreBasemapDataIntoWwwroot" AfterTargets="BuildFrontendForPublish" BeforeTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <BasemapDataFiles Include="basemap-data\**\*.pmtiles" />
+    </ItemGroup>
+
+    <Copy
+      SourceFiles="@(BasemapDataFiles)"
+      DestinationFiles="@(BasemapDataFiles->'wwwroot\tiles\basemaps\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="SyncFrontendAssetsIntoPublishDirectory" AfterTargets="Publish">
+    <RemoveDir Directories="$(PublishDir)wwwroot" />
+
+    <ItemGroup>
+      <BuiltFrontendAssets Include="wwwroot\**\*" />
+    </ItemGroup>
+
+    <Copy
+      SourceFiles="@(BuiltFrontendAssets)"
+      DestinationFiles="@(BuiltFrontendAssets->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="false" />
+  </Target>
+
+</Project>

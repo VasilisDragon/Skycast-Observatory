@@ -1,0 +1,69 @@
+# OS / editor
+Thumbs.db
+.DS_Store
+*.swp
+*.swo
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+
+# Claude
+.claude/settings.local.json
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Vite / TypeScript
+dist/
+.vite/
+vite.config.*.timestamp-*.mjs
+*.tsbuildinfo
+
+# .NET build output
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+publish/
+.publish/
+
+# Generated frontend bundle (regenerated via `dotnet publish` + vite build)
+src/WeatherSite.Api/wwwroot/assets/
+src/WeatherSite.Api/wwwroot/tiles/
+src/WeatherSite.Api/wwwroot/index.html
+
+# Large regenerable data (rebuilt via scripts/)
+*.pmtiles
+data/basemaps/downloads/
+data/airports/*.bin
+data/zip/*.bin
+data/zip/source/*.zip
+
+# Downloaded tool binaries (re-fetch from the upstream release)
+tools/pmtiles/*.exe
+tools/pmtiles/*.zip
+.tools/pmtiles/*.zip
+.tools/pmtiles/**/*.exe
+
+# ASP.NET Core data protection keys (machine-local secret material)
+**/App_Data/DataProtectionKeys/
+
+# Test / perf output
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+.perf/*.json
+.perf/*.html
+
+# Logs
+*.log
