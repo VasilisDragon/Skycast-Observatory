@@ -137,6 +137,24 @@ export function SkyNowHero(props: SkyNowHeroProps) {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [bundle]);
+
+  // First-landing auto-focus: when a fresh user arrives on `/` with no
+  // saved location and no in-flight restore, drop focus into the ZIP input
+  // so the empty state doubles as a call to action. Fires at most once,
+  // and only after hydrateFromCookie has settled (isBooting=false) so we
+  // don't steal focus from a cookie-restored refresh that is about to
+  // replace the form with the overview branch.
+  const hasAutoFocusedRef = useRef(false);
+  useEffect(() => {
+    if (hasAutoFocusedRef.current) return;
+    if (bundle || savedLocation || isBooting || isRefreshing || isSaving) return;
+    hasAutoFocusedRef.current = true;
+    const handle = window.requestAnimationFrame(() => {
+      zipInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(handle);
+  }, [bundle, savedLocation, isBooting, isRefreshing, isSaving]);
+
   const conditionLabel = CONDITION_LABELS[condition];
   const conditionGlyph = CONDITION_GLYPHS[condition];
   const overview = bundle?.overview;
