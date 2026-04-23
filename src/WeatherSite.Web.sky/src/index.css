@@ -986,7 +986,14 @@ a { color: inherit; text-decoration: none; }
   padding: 0.7rem 0.9rem;
   background: rgb(var(--phos) / 0.2);
   border-color: rgb(var(--rule) / 0.5);
+  /* Larger font + letter-spacing means "ENTER 5-DIGIT ZIP" needs ~212px of
+     content width. The base .obs-now-form .obs-input rule's flex-basis of
+     11rem (176px) is too small — the flex row fills the rest with the
+     Initialize button + kbd hint, leaving the input capped near its basis
+     and clipping the final "P". Override basis and max-width for this mode. */
+  flex-basis: 16rem;
   min-width: 12rem;
+  max-width: 18rem;
 }
 .obs-now-empty .obs-input::placeholder {
   color: rgb(var(--body));
