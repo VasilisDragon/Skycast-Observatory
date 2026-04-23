@@ -701,9 +701,14 @@ a { color: inherit; text-decoration: none; }
 .obs-now-hero { grid-area: hero; padding: 1.5rem 1.75rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
 .obs-now-radar { grid-area: radar; position: relative; min-height: 24rem; overflow: hidden; }
 
-/* Telemetry sidebar — live mini-readout rail, visible on ultra-wide screens */
+/* Telemetry sidebar — live mini-readout rail, visible on ultra-wide screens.
+   `position: relative` contains the absolutely-positioned `.obs-now-radar-empty`
+   empty-state overlay within this cell — without it the overlay escapes to the
+   nearest positioned ancestor (`.obs-now`) and paints across the entire hero
+   row, occluding the ZIP input. `.obs-now-radar` mirrors this same pattern. */
 .obs-now-telemetry {
   grid-area: telemetry;
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: 1.25rem 1.25rem 1rem;
