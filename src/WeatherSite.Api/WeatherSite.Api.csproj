@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <SpaRoot>..\WeatherSite.Web.sky\</SpaRoot>
+    <SpaRoot>..\WeatherSite.Web\</SpaRoot>
   </PropertyGroup>
 
   <ItemGroup>
