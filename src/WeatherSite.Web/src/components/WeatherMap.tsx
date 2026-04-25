@@ -193,14 +193,14 @@ export function WeatherMap({
     interactive
   ]);
 
+  // Camera sync: drive programmatic pan/zoom in response to parent state.
+  // Deliberately isolated from layer/projection deps so unrelated prop churn
+  // (e.g. a new `layers` array reference) cannot clobber an in-flight ease.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) {
       return;
     }
-
-    syncProjection(map, projection);
-    ensureLocationMarker(map, config);
     map.easeTo({
       center: [camera.longitude, camera.latitude],
       duration: 900,
@@ -208,8 +208,30 @@ export function WeatherMap({
       pitch: 0,
       zoom: camera.zoom
     });
+  }, [camera.latitude, camera.longitude, camera.zoom]);
+
+  // Layer sync: reconcile MapLibre sources/layers with the selection list.
+  // Runs when the layer set or its config-derived descriptors change; camera
+  // movement must not trigger this.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
     syncLayers(map, config, layers);
-  }, [camera.latitude, camera.longitude, camera.zoom, config, layers, projection]);
+  }, [config, layers]);
+
+  // Projection + marker sync: apply projection mode and ensure the saved-
+  // location marker reflects the current config. Kept separate from camera
+  // and layer sync so toggling projection never re-issues an easeTo.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+    syncProjection(map, projection);
+    ensureLocationMarker(map, config);
+  }, [projection, config]);
 
   // Mini mode: bare canvas. Parent supplies top/bottom strips + crosshair.
   // Full mode: canvas plus corner badges (fallback / error).
@@ -272,7 +294,11 @@ function createMapStyle(config: MapConfigResponse): StyleSpecification {
       type: "vector",
       url: `pmtiles://${origin}${config.worldPmtilesUrl}`
     };
-    layers.push(...decorateBasemapLayers("basemap-world", "world", flavor, { maxzoom: 6.25 }));
+    // Over-zoom world tiles (file maxzoom=6) up to zoom 7 so there's no
+    // basemap gap between the world tileset ending and the regional tileset
+    // starting — usa.pmtiles' file minzoom is 7, so we need world to cover
+    // through 7 to hand off cleanly.
+    layers.push(...decorateBasemapLayers("basemap-world", "world", flavor, { maxzoom: 7 }));
   }
 
   if (config.regionalPmtilesUrl) {
@@ -284,7 +310,9 @@ function createMapStyle(config: MapConfigResponse): StyleSpecification {
     };
     layers.push(
       ...decorateBasemapLayers("basemap-regional", "regional", flavor, {
-        minzoom: config.worldPmtilesUrl ? 5.75 : undefined
+        // usa.pmtiles file minzoom is 7; anything lower was vestigial (no
+        // tiles in the archive to render). Matched to the world handoff.
+        minzoom: config.worldPmtilesUrl ? 7 : undefined
       })
     );
   }
@@ -313,10 +341,24 @@ function createMapStyle(config: MapConfigResponse): StyleSpecification {
     });
   }
 
+  // Stable-partition so every non-symbol basemap layer precedes every
+  // symbol basemap layer across both world and regional blocks. Without
+  // this, overlays (anchored at the first symbol via findOverlayAnchorId)
+  // get occluded at z>=7 by regional fills that would otherwise paint
+  // after the anchor. Within each category the original protomaps order
+  // is preserved, so per-block paint semantics are unchanged.
+  const orderedLayers: LayerSpecification[] = [];
+  for (const layer of layers) {
+    if (layer.type !== "symbol") orderedLayers.push(layer);
+  }
+  for (const layer of layers) {
+    if (layer.type === "symbol") orderedLayers.push(layer);
+  }
+
   return {
     version: 8,
     glyphs: "https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf",
-    layers,
+    layers: orderedLayers,
     sources,
     sprite: "https://protomaps.github.io/basemaps-assets/sprites/v4/light"
   };

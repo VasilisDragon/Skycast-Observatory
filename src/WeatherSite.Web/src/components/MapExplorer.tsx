@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import clsx from "clsx";
 import type { Map as MapLibreMap } from "maplibre-gl";
@@ -67,6 +67,23 @@ export function MapExplorer({ config, focusedAirportIcao, onFocusConsumed }: Map
   const [units] = useUnits();
   const [mapInstance, setMapInstance] = useState<MapLibreMap | null>(null);
   const [bbox, setBbox] = useState<BboxTuple | null>(null);
+  // Live zoom tracks the map's animating zoom frame-by-frame so the scale
+  // and zoom readouts follow the easeTo animation instead of snapping to
+  // the target the moment camera state commits. `null` until the map is
+  // ready; consumers fall back to `camera.zoom`.
+  const [liveZoom, setLiveZoom] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!mapInstance) return;
+    const handler = () => setLiveZoom(mapInstance.getZoom());
+    mapInstance.on("zoom", handler);
+    setLiveZoom(mapInstance.getZoom());
+    return () => {
+      mapInstance.off("zoom", handler);
+    };
+  }, [mapInstance]);
+
+  const displayZoom = liveZoom ?? camera.zoom;
 
   useEffect(() => {
     const nextActiveLayers = buildDefaultActiveLayers(config);
@@ -118,13 +135,20 @@ export function MapExplorer({ config, focusedAirportIcao, onFocusConsumed }: Map
 
   const focusedLayer =
     config.layers.find((layer) => layer.id === focusedLayerId) ?? config.layers[0];
-  const visibleLayerSelections = config.layers
-    .filter((layer) => activeLayers[layer.id])
-    .map((layer) => ({
-      id: layer.id,
-      opacity: layerOpacities[layer.id] ?? layer.defaultOpacity,
-      time: layerTimes[layer.id]
-    }));
+  // Memoized: WeatherMap's layer-sync effect uses this array in its deps.
+  // A fresh reference on every render would re-fire that effect and could
+  // indirectly interrupt user gestures.
+  const visibleLayerSelections = useMemo(
+    () =>
+      config.layers
+        .filter((layer) => activeLayers[layer.id])
+        .map((layer) => ({
+          id: layer.id,
+          opacity: layerOpacities[layer.id] ?? layer.defaultOpacity,
+          time: layerTimes[layer.id]
+        })),
+    [config.layers, activeLayers, layerOpacities, layerTimes]
+  );
 
   const focusedTimeIndex =
     focusedLayer?.times.findIndex((time) => time === layerTimes[focusedLayer.id]) ?? -1;
@@ -315,13 +339,13 @@ export function MapExplorer({ config, focusedAirportIcao, onFocusConsumed }: Map
           <span>LAT · LON</span>
           <b>{config.centerLatitude.toFixed(3)}° · {config.centerLongitude.toFixed(3)}°</b>
           <span>ZOOM · PROJ</span>
-          <b>{camera.zoom.toFixed(1)} · {projection.toUpperCase()}</b>
+          <b>{displayZoom.toFixed(1)} · {projection.toUpperCase()}</b>
         </div>
 
         <div className="obs-atlas-scale" aria-label="Map scale">
           <span>Scale</span>
           <div className="obs-atlas-scale-bar" />
-          <span>~{approximateScaleKm(camera.zoom, camera.latitude)} km</span>
+          <span>~{approximateScaleKm(displayZoom, camera.latitude)} km</span>
         </div>
 
         <aside className={clsx("obs-atlas-panel", isPanelOpen ? "is-open" : "is-collapsed")}>
