@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Net;
+using System.Text;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using WeatherSite.Api.Configuration;
@@ -218,7 +219,11 @@ public sealed class AviationWeatherService : IAviationWeatherService, IDisposabl
             timings?.Record(phaseName, Stopwatch.GetElapsedTime(start));
 
             var entry = new CachedEntry(body, _timeProvider.GetUtcNow());
-            _cache.Set(cacheKey, entry, staleTtl);
+            _cache.Set(cacheKey, entry, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = staleTtl,
+                Size = Math.Max(1, Encoding.UTF8.GetByteCount(body) / 1024)
+            });
             return new AviationFetchResult(AviationSource.Live, body, entry.FetchedAtUtc, false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)

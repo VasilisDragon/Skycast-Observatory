@@ -34,6 +34,14 @@ public sealed class WeatherSiteOptions
     [Range(60, 20_000)]
     public int TileRequestsPerMinute { get; set; } = 600;
 
+    // Cap on the in-process IMemoryCache, in KB-equivalent units (one unit
+    // is roughly one kilobyte of payload). Each cache Set call passes a
+    // matching Size estimate, so the total cap bounds peak memory; without
+    // it, the cache would grow unbounded until GC pressure starts evicting.
+    // Default 256 MB equivalent — tune per host RAM.
+    [Range(1024, 16 * 1024 * 1024)]
+    public int MemoryCacheSizeKb { get; set; } = 256 * 1024;
+
     // Point endpoints (METAR batch, PIREP radial, bbox-stations, airport search)
     // fan out heavily: one pageview produces ~8 calls. Higher ceiling.
     [Range(10, 10_000)]

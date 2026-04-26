@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
@@ -156,7 +157,11 @@ public sealed class NwsWeatherService : IResolvedLocationService, IWeatherOvervi
         {
             var json = await SendNwsRequestAsync(context.PointInfo.AlertsUrl, timeoutCts.Token);
             Timings?.Record("nws-alerts", Stopwatch.GetElapsedTime(start));
-            _cache.Set(cacheKey, json, AlertsCacheDuration);
+            _cache.Set(cacheKey, json, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = AlertsCacheDuration,
+                Size = Math.Max(1, Encoding.UTF8.GetByteCount(json) / 1024)
+            });
             return (json, false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -474,7 +479,11 @@ public sealed class NwsWeatherService : IResolvedLocationService, IWeatherOvervi
         var start = Stopwatch.GetTimestamp();
         var result = await factory(cancellationToken);
         timings?.Record(phaseName, Stopwatch.GetElapsedTime(start));
-        _cache.Set(cacheKey, result, cacheDuration);
+        _cache.Set(cacheKey, result, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = cacheDuration,
+            Size = Math.Max(1, Encoding.UTF8.GetByteCount(result) / 1024)
+        });
         return result;
     }
 

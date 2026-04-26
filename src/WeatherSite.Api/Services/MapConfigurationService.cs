@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Xml.Linq;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
@@ -117,7 +118,15 @@ public sealed class MapConfigurationService : IMapConfigurationService
             regionalExists ? _options.Basemaps.RegionalUrl : null,
             layers);
 
-        _cache.Set(cacheKey, config, ConfigCacheDuration);
+        // MapConfigResponse is a small composed record; payload bytes are
+        // dominated by the layer descriptors and capabilities times. ~4 KB
+        // is generous for the largest realistic config; a static estimate
+        // avoids the cost of round-tripping through serialization.
+        _cache.Set(cacheKey, config, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = ConfigCacheDuration,
+            Size = 4
+        });
         return config;
     }
 
@@ -134,7 +143,11 @@ public sealed class MapConfigurationService : IMapConfigurationService
             var requestUri = $"{serviceUrl}?service=WMS&version=1.3.0&request=GetCapabilities";
             var client = _httpClientFactory.CreateClient("weather-site:generic");
             var xml = await client.GetStringAsync(requestUri, cancellationToken);
-            _cache.Set(cacheKey, xml, CapabilitiesCacheDuration);
+            _cache.Set(cacheKey, xml, new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = CapabilitiesCacheDuration,
+                Size = Math.Max(1, Encoding.UTF8.GetByteCount(xml) / 1024)
+            });
             return xml;
         }
         catch (Exception exception)

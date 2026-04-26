@@ -77,7 +77,11 @@ public sealed class MapTileProxyService : IMapTileProxyService
             response.Content.Headers.ContentType?.MediaType ?? "image/png",
             definition.TileCacheSeconds);
 
-        _cache.Set(cacheKey, result, TimeSpan.FromSeconds(definition.TileCacheSeconds));
+        _cache.Set(cacheKey, result, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(definition.TileCacheSeconds),
+            Size = Math.Max(1, bytes.Length / 1024)
+        });
         return result;
     }
 

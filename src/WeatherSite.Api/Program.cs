@@ -20,6 +20,7 @@ var apiRequestsPerMinute = weatherSiteConfiguration.GetValue<int?>(nameof(Weathe
 var tileRequestsPerMinute = weatherSiteConfiguration.GetValue<int?>(nameof(WeatherSiteOptions.TileRequestsPerMinute)) ?? 600;
 var aviationPointRequestsPerMinute = weatherSiteConfiguration.GetValue<int?>(nameof(WeatherSiteOptions.AviationPointRequestsPerMinute)) ?? 120;
 var aviationPolyRequestsPerMinute = weatherSiteConfiguration.GetValue<int?>(nameof(WeatherSiteOptions.AviationPolyRequestsPerMinute)) ?? 30;
+var memoryCacheSizeKb = weatherSiteConfiguration.GetValue<int?>(nameof(WeatherSiteOptions.MemoryCacheSizeKb)) ?? 256 * 1024;
 var fullDataProtectionKeysPath = Path.Combine(builder.Environment.ContentRootPath, dataProtectionKeysPath);
 
 Directory.CreateDirectory(fullDataProtectionKeysPath);
@@ -27,7 +28,15 @@ Directory.CreateDirectory(fullDataProtectionKeysPath);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
-builder.Services.AddMemoryCache();
+builder.Services.AddMemoryCache(options =>
+{
+    // Cap total cache payload — bounds the chained DEF-006/DEF-007 memory
+    // pollution primitive (attacker-controlled tile cache keys). Every
+    // _cache.Set in this app passes a Size estimate; if a future Set is
+    // added without one, that entry is treated as size 0 and the cap stops
+    // engaging for the cache as a whole, so keep Sizes in sync.
+    options.SizeLimit = memoryCacheSizeKb;
+});
 var dataProtectionBuilder = builder.Services.AddDataProtection()
     .SetApplicationName("WeatherSite")
     .PersistKeysToFileSystem(new DirectoryInfo(fullDataProtectionKeysPath));
