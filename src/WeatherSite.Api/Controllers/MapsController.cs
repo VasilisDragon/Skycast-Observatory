@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -11,8 +12,15 @@ namespace WeatherSite.Api.Controllers;
 [ApiController]
 [EnableRateLimiting("weather-api")]
 [Route("api/maps")]
-public sealed class MapsController : ControllerBase
+public sealed partial class MapsController : ControllerBase
 {
+    // ISO 8601 instant in UTC, e.g. 2026-04-07T14:05:00Z. The tile cache key
+    // embeds this value verbatim, so unbounded shapes let an attacker mint
+    // a fresh cache entry per distinct string. Pin to the format every WMS
+    // upstream we proxy emits in its capabilities document.
+    [GeneratedRegex(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$", RegexOptions.CultureInvariant)]
+    private static partial Regex TileTimeRegex();
+
     private readonly IHomeLocationCookieCodec _homeLocationCookieCodec;
     private readonly IMapConfigurationService _mapConfigurationService;
     private readonly IMapTileProxyService _mapTileProxyService;
@@ -74,6 +82,14 @@ public sealed class MapsController : ControllerBase
         [FromQuery] string? time,
         CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrEmpty(time) && !TileTimeRegex().IsMatch(time))
+        {
+            return ValidationProblem(new ValidationProblemDetails(new Dictionary<string, string[]>
+            {
+                ["time"] = ["Time must be an ISO 8601 UTC instant (e.g. 2026-04-07T14:05:00Z)."]
+            }));
+        }
+
         try
         {
             var tile = await _mapTileProxyService.GetTileAsync(provider, layer, z, x, y, time, cancellationToken);
