@@ -212,7 +212,7 @@ app.Use(async (context, next) =>
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
             "img-src 'self' data: https:; " +
             "font-src 'self' data: https://fonts.gstatic.com https://protomaps.github.io; " +
-            "connect-src 'self' https:; " +
+            "connect-src 'self'; " +
             "worker-src 'self' blob:; " +
             "upgrade-insecure-requests";
         headers["Permissions-Policy"] = "camera=(), geolocation=(), microphone=()";
