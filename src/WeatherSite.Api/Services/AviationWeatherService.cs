@@ -54,6 +54,16 @@ public sealed class AviationWeatherService : IAviationWeatherService, IDisposabl
     private static readonly TimeSpan WindsStaleTtl = TimeSpan.FromHours(6);
     private static readonly TimeSpan UpstreamTimeout = TimeSpan.FromSeconds(6);
 
+    // AWC's windtemp endpoint accepts only the regions enumerated below.
+    // The `region` value is interpolated raw into the upstream URL with no
+    // URL-encoding, so anything outside this set must fall back to "us"
+    // before reaching the URL builder — otherwise an attacker can append
+    // `&extra=value` pairs to AWC's request via URL-decoded ampersands.
+    private static readonly HashSet<string> AllowedWindRegions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "us", "bos", "mia", "chi", "dfw", "slc", "sfo", "sea", "alaska", "hawaii", "other_pac"
+    };
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IMemoryCache _cache;
     private readonly TimeProvider _timeProvider;
@@ -147,7 +157,8 @@ public sealed class AviationWeatherService : IAviationWeatherService, IDisposabl
 
     public Task<AviationFetchResult> GetWindsAloftAsync(string region, CancellationToken cancellationToken)
     {
-        var safeRegion = (region ?? "us").Trim().ToLowerInvariant();
+        var candidate = (region ?? "us").Trim().ToLowerInvariant();
+        var safeRegion = AllowedWindRegions.Contains(candidate) ? candidate : "us";
         var url = $"windtemp?region={safeRegion}&fcst=06&level=low";
         var cacheKey = $"awc:winds:{safeRegion}";
         return FetchAsync("awc-winds", cacheKey, url, WindsFreshTtl, WindsStaleTtl, AviationBucket.Poly, cancellationToken);
