@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Net;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -41,6 +42,15 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
         ForwardedHeaders.XForwardedFor
         | ForwardedHeaders.XForwardedHost
         | ForwardedHeaders.XForwardedProto;
+
+    // The Cloudflare tunnel runs on a separate Docker host on the LAN and
+    // forwards to IIS:8080. Trust only that host's address when reading
+    // X-Forwarded-* headers; without this pin, ASP.NET Core's default
+    // restricts trust to 127.0.0.1 and silently drops the headers from
+    // any non-loopback proxy, leaving Request.IsHttps=false and the
+    // rate-limit partition keyed on the tunnel IP.
+    options.KnownProxies.Add(IPAddress.Parse("192.168.1.102"));
+    options.ForwardLimit = 1;
 });
 builder.Services.AddRateLimiter(options =>
 {
@@ -271,8 +281,21 @@ app.MapFallback(async context =>
     await context.Response.SendFileAsync(indexPath);
 });
 
-static string GetClientAddress(HttpContext context) =>
-    context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+static string GetClientAddress(HttpContext context)
+{
+    // Cloudflare always sets CF-Connecting-IP at its edge and overwrites
+    // any client-supplied value, so it is unforgeable once KnownProxies
+    // restricts which hop can deliver it. Prefer it as the rate-limit
+    // partition key so each public client gets its own bucket; without
+    // this, every internet client falls into the tunnel's IP partition
+    // and the four rate-limit policies become global request budgets.
+    if (context.Request.Headers.TryGetValue("CF-Connecting-IP", out var cfConnectingIp)
+        && !StringValues.IsNullOrEmpty(cfConnectingIp))
+    {
+        return cfConnectingIp.ToString();
+    }
+    return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+}
 
 app.Run();
 
