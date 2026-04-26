@@ -7,7 +7,7 @@ public sealed class WeatherSiteOptions
     public const string SectionName = "WeatherSite";
 
     [Required]
-    public string UserAgent { get; set; } = "StormglassWeather/1.0 (admin@example.com)";
+    public string UserAgent { get; set; } = "WeatherSite/1.0 (+https://weather.vasilis.club; contact@vasilis.club)";
 
     [Required]
     public string ZipCentroidsPath { get; set; } = "App_Data/zcta-centroids.json";
