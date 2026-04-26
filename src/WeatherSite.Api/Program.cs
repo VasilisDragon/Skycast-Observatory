@@ -28,9 +28,18 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddMemoryCache();
-builder.Services.AddDataProtection()
+var dataProtectionBuilder = builder.Services.AddDataProtection()
     .SetApplicationName("WeatherSite")
     .PersistKeysToFileSystem(new DirectoryInfo(fullDataProtectionKeysPath));
+
+if (OperatingSystem.IsWindows())
+{
+    // Wrap the persisted key files with the local machine's DPAPI so an
+    // off-box copy of the key directory is unusable. Single-host IIS
+    // deployment, so machine-scoped DPAPI is correct; switch to a cert
+    // (ProtectKeysWithCertificate) only if scaling to multiple hosts.
+    dataProtectionBuilder.ProtectKeysWithDpapi(protectToLocalMachine: true);
+}
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddOptions<WeatherSiteOptions>()
     .Bind(weatherSiteConfiguration)
