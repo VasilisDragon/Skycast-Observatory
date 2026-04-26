@@ -180,16 +180,22 @@ if (weatherSiteOptions.UseForwardedHeaders)
     app.UseForwardedHeaders();
 }
 
-app.Use(async (context, next) =>
+if (app.Environment.IsDevelopment())
 {
-    var timings = context.RequestServices.GetRequiredService<ServerTimingCollector>();
-    context.Response.OnStarting(() =>
+    // Server-Timing leaks per-phase upstream names, cache hit/miss state,
+    // and precise internal latencies. Useful in dev for performance work,
+    // unnecessary on the public internet — silence in non-dev environments.
+    app.Use(async (context, next) =>
     {
-        context.Response.Headers["Server-Timing"] = new StringValues(timings.Format());
-        return Task.CompletedTask;
+        var timings = context.RequestServices.GetRequiredService<ServerTimingCollector>();
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers["Server-Timing"] = new StringValues(timings.Format());
+            return Task.CompletedTask;
+        });
+        await next();
     });
-    await next();
-});
+}
 
 app.Use(async (context, next) =>
 {
