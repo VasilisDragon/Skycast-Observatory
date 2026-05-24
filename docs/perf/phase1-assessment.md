@@ -20,7 +20,7 @@
 - Security/hardening is solid: CSP, HSTS, X-Frame-Options, forwarded headers, per-IP rate limiting (`weather-api` 120/min, `tile-proxy` 600/min), Data Protection for the `weather_home_zip` cookie (HttpOnly, SameSite=Lax, Secure, 365-day lifetime).
 
 **Deploy pipeline**
-- IIS Site: `weathersite`, bound to `http://*:8080`, physical path `D:\Codex\weather website\src\WeatherSite.Api\bin\Release\net10.0\win-x64\publish`.
+- IIS Site: `weathersite`, bound to `http://*:8080`, physical path is the published output under `src/WeatherSite.Api/bin/Release/net10.0/win-x64/publish/`.
 - `weather.vasilis.club` sits behind **Cloudflare** (observed in response headers) which presumably terminates TLS and forwards to the IIS 8080 binding. The site's own `web.config` is the dotnet-publish-generated ASP.NET Core Module shim — nothing else (no `<clientCache>`, no `<rewrite>`, no `<staticContent>` MIME). All static delivery flows through Kestrel in-process.
 - Build is driven by the `.csproj`: a `BuildFrontendForPublish` MSBuild target runs `npm install && npm run build` in `WeatherSite.Web`, which emits to `../WeatherSite.Api/wwwroot`; `SyncFrontendAssetsIntoPublishDirectory` mirrors that into the publish output. One command (`dotnet publish -c Release -r win-x64`) produces the full deployable.
 - PMTiles basemaps are carried separately: `world.pmtiles` (44 MB) and `usa.pmtiles` (440 MB) live in `data/basemaps/`, are mirrored into `wwwroot/tiles/basemaps/`, and are served with MIME `application/octet-stream` registered at Program.cs:118.

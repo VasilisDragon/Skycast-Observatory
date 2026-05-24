@@ -10,7 +10,7 @@ Thumbs.db
 *.user
 *.suo
 
-# Claude
+# AI assistant local settings
 .claude/settings.local.json
 
 # Node
@@ -35,6 +35,7 @@ x64/
 x86/
 publish/
 .publish/
+publish-staging/
 
 # Generated frontend bundle (regenerated via `dotnet publish` + vite build)
 src/WeatherSite.Api/wwwroot/assets/
@@ -57,13 +58,16 @@ tools/pmtiles/*.zip
 # ASP.NET Core data protection keys (machine-local secret material)
 **/App_Data/DataProtectionKeys/
 
-# Test / perf output
+# Test output
 TestResults/
 coverage/
 *.coverage
 *.coveragexml
-.perf/*.json
-.perf/*.html
 
 # Logs
 *.log
+
+# Local scratch and temp
+tmp-*
+tmp/
+.perf/
