@@ -71,3 +71,6 @@ coverage/
 tmp-*
 tmp/
 .perf/
+
+# Operator scratch directory (private notes, drafts, checklists).
+notes/
