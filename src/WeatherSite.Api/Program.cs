@@ -61,13 +61,23 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
         | ForwardedHeaders.XForwardedHost
         | ForwardedHeaders.XForwardedProto;
 
-    // The Cloudflare tunnel runs on a separate Docker host on the LAN and
-    // forwards to IIS:8080. Trust only that host's address when reading
+    // Trust only the configured reverse-proxy/tunnel hosts when reading
     // X-Forwarded-* headers; without this pin, ASP.NET Core's default
     // restricts trust to 127.0.0.1 and silently drops the headers from
     // any non-loopback proxy, leaving Request.IsHttps=false and the
-    // rate-limit partition keyed on the tunnel IP.
-    options.KnownProxies.Add(IPAddress.Parse("192.168.1.102"));
+    // rate-limit partition keyed on the tunnel IP. Configure
+    // WeatherSite:TrustedProxies in appsettings.json for production
+    // deployments (e.g. the Cloudflare tunnel container's LAN IP).
+    var trustedProxies = weatherSiteConfiguration
+        .GetSection(nameof(WeatherSiteOptions.TrustedProxies))
+        .Get<string[]>() ?? Array.Empty<string>();
+    foreach (var proxy in trustedProxies)
+    {
+        if (IPAddress.TryParse(proxy, out var address))
+        {
+            options.KnownProxies.Add(address);
+        }
+    }
     options.ForwardLimit = 1;
 });
 builder.Services.AddRateLimiter(options =>

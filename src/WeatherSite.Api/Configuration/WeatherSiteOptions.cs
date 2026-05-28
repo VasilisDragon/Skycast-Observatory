@@ -26,6 +26,13 @@ public sealed class WeatherSiteOptions
 
     public bool UseForwardedHeaders { get; set; } = true;
 
+    // Trusted reverse-proxy/tunnel IPs whose X-Forwarded-* headers should be
+    // honored. When empty, ASP.NET Core's default (loopback only) applies and
+    // headers from non-loopback proxies are silently dropped, leaving
+    // Request.IsHttps=false. Set this to the proxy host's address (e.g. the
+    // Cloudflare tunnel container's LAN IP) in production deployments.
+    public List<string> TrustedProxies { get; set; } = new();
+
     public bool EnforceHttpsRedirection { get; set; } = true;
 
     [Range(10, 10_000)]
