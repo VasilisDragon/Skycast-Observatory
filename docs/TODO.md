@@ -8,4 +8,4 @@ Deferred items — not blocking, not on the current path. One line each; expand 
 
 ## Infra / hosting
 
-- **ASP.NET Core forwarded-headers config:** site runs HTTP behind Cloudflare tunnel; Request.IsHttps returns false in app code, so cookie Secure flag and any other protocol-conditional code paths see HTTP. Fix with UseForwardedHeaders middleware accepting XForwardedProto from tunnel IP. One integration test (SaveHomeLocation_SetsSecureCookie_AndCanBeReadBack) currently fails for this reason.
+- **`SaveHomeLocation_SetsSecureCookie_AndCanBeReadBack` integration test:** Production forwarded-headers config now applied (`WeatherSite:TrustedProxies` in appsettings.json drives `KnownProxies` in `Program.cs`, and `UseForwardedHeaders` middleware runs when the option is enabled), so Request.IsHttps resolves correctly behind the Cloudflare tunnel. The integration test still fails because WebApplicationFactory's TestServer doesn't set `X-Forwarded-Proto`, so Request.IsHttps stays false and the Secure cookie flag is dropped in-test. Either inject the header in the test setup or scope the Secure-flag assertion to the production transport.
