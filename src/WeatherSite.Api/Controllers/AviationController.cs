@@ -424,7 +424,23 @@ public sealed class AviationController : ControllerBase
         [FromQuery] int radius = 200,
         CancellationToken cancellationToken = default)
     {
-        var result = await _awc.GetPirepsAsync(lat, lon, radius, cancellationToken);
+        var errors = new Dictionary<string, string[]>();
+        if (!double.IsFinite(lat) || lat < -90 || lat > 90)
+        {
+            errors["lat"] = ["Latitude must be finite and in [-90, 90]."];
+        }
+        if (!double.IsFinite(lon) || lon < -180 || lon > 180)
+        {
+            errors["lon"] = ["Longitude must be finite and in [-180, 180]."];
+        }
+        if (errors.Count > 0)
+        {
+            return ValidationProblem(new ValidationProblemDetails(errors));
+        }
+
+        var snappedLat = Math.Round(lat, 3, MidpointRounding.AwayFromZero);
+        var snappedLon = Math.Round(lon, 3, MidpointRounding.AwayFromZero);
+        var result = await _awc.GetPirepsAsync(snappedLat, snappedLon, radius, cancellationToken);
         var features = ParsePirepFeatures(result.Payload).ToArray();
         var stale = result.Source is AviationSource.StaleCache;
         return Ok(new PirepsResponse(features, ToStatus(result, stale)));

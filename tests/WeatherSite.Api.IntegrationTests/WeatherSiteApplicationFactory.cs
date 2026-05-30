@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,9 +12,24 @@ namespace WeatherSite.Api.IntegrationTests;
 
 public sealed class WeatherSiteApplicationFactory : WebApplicationFactory<Program>
 {
+    private readonly string _environment;
+
+    public WeatherSiteApplicationFactory()
+        : this("Production")
+    {
+    }
+
+    private WeatherSiteApplicationFactory(string environment)
+    {
+        _environment = environment;
+    }
+
+    public static WeatherSiteApplicationFactory ForEnvironment(string environment) => new(environment);
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(_environment);
+        builder.UseSetting("AllowedHosts", "*");
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<IZipResolver>();
@@ -21,11 +37,13 @@ public sealed class WeatherSiteApplicationFactory : WebApplicationFactory<Progra
             services.RemoveAll<IWeatherOverviewService>();
             services.RemoveAll<IMapConfigurationService>();
             services.RemoveAll<IMapTileProxyService>();
+            services.RemoveAll<IAviationWeatherService>();
 
             services.PostConfigure<WeatherSiteOptions>(options =>
             {
                 options.CookieName = "weather_home_zip";
                 options.CookieLifetimeDays = 365;
+                options.EnforceHttpsRedirection = false;
             });
 
             services.AddSingleton<IZipResolver, StubZipResolver>();
@@ -33,6 +51,7 @@ public sealed class WeatherSiteApplicationFactory : WebApplicationFactory<Progra
             services.AddSingleton<IWeatherOverviewService, StubWeatherOverviewService>();
             services.AddSingleton<IMapConfigurationService, StubMapConfigurationService>();
             services.AddSingleton<IMapTileProxyService, StubMapTileProxyService>();
+            services.AddSingleton<IAviationWeatherService, StubAviationWeatherService>();
         });
     }
 }
@@ -192,4 +211,43 @@ internal sealed class StubMapTileProxyService : IMapTileProxyService
 
     public Task<MapTileResult> GetTileAsync(string provider, string layer, int z, int x, int y, string? time, CancellationToken cancellationToken) =>
         Task.FromResult(new MapTileResult(PngBytes, "image/png", 60));
+}
+
+internal sealed class StubAviationWeatherService : IAviationWeatherService
+{
+    public Task<AviationFetchResult> GetMetarAsync(string icao, int hours, CancellationToken cancellationToken) =>
+        Task.FromResult(EmptyResult("[]"));
+
+    public Task<AviationFetchResult> GetMetarBatchAsync(IReadOnlyCollection<string> icaos, int hours, CancellationToken cancellationToken) =>
+        Task.FromResult(EmptyResult("[]"));
+
+    public Task<AviationFetchResult> GetTafAsync(string icao, CancellationToken cancellationToken) =>
+        Task.FromResult(EmptyResult("[]"));
+
+    public Task<AviationFetchResult> GetHazardsAsync(string type, CancellationToken cancellationToken) =>
+        Task.FromResult(EmptyResult("[]"));
+
+    public Task<AviationFetchResult> GetPirepsAsync(double latitude, double longitude, int radiusNm, CancellationToken cancellationToken)
+    {
+        var lat = latitude.ToString(CultureInfo.InvariantCulture);
+        var lon = longitude.ToString(CultureInfo.InvariantCulture);
+        var payload = $$"""
+            [
+              {
+                "pirepId": "stub-pirep",
+                "lat": {{lat}},
+                "lon": {{lon}},
+                "obsTime": "2026-04-07T14:00:00Z",
+                "rawOb": "stub"
+              }
+            ]
+            """;
+        return Task.FromResult(EmptyResult(payload));
+    }
+
+    public Task<AviationFetchResult> GetWindsAloftAsync(string region, CancellationToken cancellationToken) =>
+        Task.FromResult(EmptyResult(""));
+
+    private static AviationFetchResult EmptyResult(string payload) =>
+        new(AviationSource.Live, payload, DateTimeOffset.Parse("2026-04-07T14:01:00Z"), false);
 }

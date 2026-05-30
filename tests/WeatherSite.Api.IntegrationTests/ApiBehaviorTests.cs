@@ -107,7 +107,7 @@ public sealed class ApiBehaviorTests : IClassFixture<WeatherSiteApplicationFacto
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("text/html", response.Content.Headers.ContentType?.MediaType);
-        Assert.Contains("Stormglass", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Skycast", content, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public sealed class ApiBehaviorTests : IClassFixture<WeatherSiteApplicationFacto
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("text/html", response.Content.Headers.ContentType?.MediaType);
-        Assert.Contains("Stormglass", content, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Skycast", content, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -141,5 +141,59 @@ public sealed class ApiBehaviorTests : IClassFixture<WeatherSiteApplicationFacto
         Assert.Contains("default-src 'self'", cspValues.Single());
         Assert.Equal("DENY", response.Headers.GetValues("X-Frame-Options").Single());
         Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
+    }
+
+    [Fact]
+    public async Task SpaFallback_InProduction_DoesNotExposeServerTiming()
+    {
+        await using var factory = WeatherSiteApplicationFactory.ForEnvironment("Production");
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost")
+        });
+
+        var response = await client.GetAsync("/");
+
+        Assert.False(response.Headers.Contains("Server-Timing"));
+        Assert.True(response.Headers.TryGetValues("Content-Security-Policy", out var cspValues));
+        var csp = cspValues.Single();
+        Assert.Contains("connect-src 'self';", csp);
+        Assert.DoesNotContain("connect-src 'self' https:", csp);
+    }
+
+    [Theory]
+    [InlineData("/api/aviation/pireps?lat=91&lon=0")]
+    [InlineData("/api/aviation/pireps?lat=-91&lon=0")]
+    [InlineData("/api/aviation/pireps?lat=0&lon=181")]
+    [InlineData("/api/aviation/pireps?lat=0&lon=-181")]
+    [InlineData("/api/aviation/pireps?lat=NaN&lon=0")]
+    [InlineData("/api/aviation/pireps?lat=0&lon=Infinity")]
+    public async Task Pireps_RejectsInvalidCoordinates(string path)
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost")
+        });
+
+        var response = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Pireps_NormalizesCoordinatesBeforeFetch()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost")
+        });
+
+        var payload = await client.GetFromJsonAsync<PirepsResponse>(
+            "/api/aviation/pireps?lat=41.8864&lon=-87.6186&radius=200");
+
+        Assert.NotNull(payload);
+        var feature = Assert.Single(payload!.Features);
+        Assert.Equal(41.886, feature.Latitude);
+        Assert.Equal(-87.619, feature.Longitude);
     }
 }
