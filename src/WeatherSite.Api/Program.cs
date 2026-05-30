@@ -13,8 +13,23 @@ using WeatherSite.Api.Utilities;
 using Microsoft.Extensions.Primitives;
 
 var builder = WebApplication.CreateBuilder(args);
-var trustedTunnelProxyAddress = IPAddress.Parse("192.168.1.102");
 var weatherSiteConfiguration = builder.Configuration.GetSection(WeatherSiteOptions.SectionName);
+
+// Reverse-proxy/tunnel hosts whose forwarded headers and CF-Connecting-IP we
+// trust. Parsed once from WeatherSite:TrustedProxies and shared by both the
+// forwarded-headers KnownProxies allowlist and the rate limiter's client-IP
+// resolver (ClientAddressResolver). Empty => ASP.NET Core's loopback-only
+// default applies and CF-Connecting-IP is ignored.
+var trustedProxyAddresses = new List<IPAddress>();
+foreach (var candidate in weatherSiteConfiguration
+    .GetSection(nameof(WeatherSiteOptions.TrustedProxies))
+    .Get<string[]>() ?? Array.Empty<string>())
+{
+    if (IPAddress.TryParse(candidate, out var parsedProxyAddress))
+    {
+        trustedProxyAddresses.Add(parsedProxyAddress);
+    }
+}
 var dataProtectionKeysPath = weatherSiteConfiguration.GetValue<string>(nameof(WeatherSiteOptions.DataProtectionKeysPath))
     ?? "App_Data/DataProtectionKeys";
 var apiRequestsPerMinute = weatherSiteConfiguration.GetValue<int?>(nameof(WeatherSiteOptions.ApiRequestsPerMinute)) ?? 120;
@@ -62,13 +77,18 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
         | ForwardedHeaders.XForwardedHost
         | ForwardedHeaders.XForwardedProto;
 
-    // The Cloudflare tunnel runs on a separate Docker host on the LAN and
-    // forwards to IIS:8080. Trust only that host's address when reading
+    // Trust only the configured reverse-proxy/tunnel hosts when reading
     // X-Forwarded-* headers; without this pin, ASP.NET Core's default
     // restricts trust to 127.0.0.1 and silently drops the headers from
     // any non-loopback proxy, leaving Request.IsHttps=false and the
-    // rate-limit partition keyed on the tunnel IP.
-    options.KnownProxies.Add(trustedTunnelProxyAddress);
+    // rate-limit partition keyed on the tunnel IP. Configure
+    // WeatherSite:TrustedProxies in appsettings.json for production
+    // deployments (e.g. the Cloudflare tunnel container's LAN IP). The same
+    // list gates CF-Connecting-IP in ClientAddressResolver below.
+    foreach (var proxy in trustedProxyAddresses)
+    {
+        options.KnownProxies.Add(proxy);
+    }
     options.ForwardLimit = 1;
 });
 builder.Services.AddRateLimiter(options =>
@@ -85,7 +105,7 @@ builder.Services.AddRateLimiter(options =>
     };
     options.AddPolicy("weather-api", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedTunnelProxyAddress),
+            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedProxyAddresses),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = apiRequestsPerMinute,
@@ -95,7 +115,7 @@ builder.Services.AddRateLimiter(options =>
             }));
     options.AddPolicy("tile-proxy", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedTunnelProxyAddress),
+            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedProxyAddresses),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = tileRequestsPerMinute,
@@ -105,7 +125,7 @@ builder.Services.AddRateLimiter(options =>
             }));
     options.AddPolicy("aviation-point", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedTunnelProxyAddress),
+            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedProxyAddresses),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = aviationPointRequestsPerMinute,
@@ -115,7 +135,7 @@ builder.Services.AddRateLimiter(options =>
             }));
     options.AddPolicy("aviation-poly", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedTunnelProxyAddress),
+            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedProxyAddresses),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = aviationPolyRequestsPerMinute,

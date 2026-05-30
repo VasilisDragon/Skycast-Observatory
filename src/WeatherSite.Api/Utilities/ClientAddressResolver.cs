@@ -6,10 +6,10 @@ namespace WeatherSite.Api.Utilities;
 
 public static class ClientAddressResolver
 {
-    public static string GetClientAddress(HttpContext context, IPAddress trustedProxyAddress)
+    public static string GetClientAddress(HttpContext context, IReadOnlyCollection<IPAddress> trustedProxyAddresses)
     {
         var remoteAddress = Normalize(context.Connection.RemoteIpAddress);
-        if (IsTrustedProxy(remoteAddress, trustedProxyAddress)
+        if (IsTrustedProxy(remoteAddress, trustedProxyAddresses)
             && TryParseSingleIpAddress(context.Request.Headers["CF-Connecting-IP"], out var cfConnectingIp))
         {
             return cfConnectingIp.ToString();
@@ -18,11 +18,23 @@ public static class ClientAddressResolver
         return remoteAddress?.ToString() ?? "unknown";
     }
 
-    public static bool IsTrustedProxy(IPAddress? remoteAddress, IPAddress trustedProxyAddress)
+    public static bool IsTrustedProxy(IPAddress? remoteAddress, IReadOnlyCollection<IPAddress> trustedProxyAddresses)
     {
         var normalizedRemote = Normalize(remoteAddress);
-        var normalizedTrusted = Normalize(trustedProxyAddress);
-        return normalizedRemote is not null && normalizedRemote.Equals(normalizedTrusted);
+        if (normalizedRemote is null)
+        {
+            return false;
+        }
+
+        foreach (var trustedProxyAddress in trustedProxyAddresses)
+        {
+            if (normalizedRemote.Equals(Normalize(trustedProxyAddress)))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static bool TryParseSingleIpAddress(StringValues values, out IPAddress address)
