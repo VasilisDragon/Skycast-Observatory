@@ -19,6 +19,8 @@ public interface IMapTileProxyService
 
 public sealed class MapTileProxyService : IMapTileProxyService
 {
+    private const int MaxTileBytes = 1_048_576;
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IMemoryCache _cache;
     private readonly ILogger<MapTileProxyService> _logger;
@@ -42,11 +44,7 @@ public sealed class MapTileProxyService : IMapTileProxyService
         string? time,
         CancellationToken cancellationToken)
     {
-        if (z < 0 || x < 0 || y < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(z), "Tile coordinates must be non-negative.");
-        }
-
+        WebMercatorTileMath.ValidateTileCoordinates(z, x, y);
         var definition = MapLayerCatalog.Resolve(provider, layer)
             ?? throw new KeyNotFoundException($"Map layer {provider}/{layer} is not registered.");
 
@@ -58,7 +56,7 @@ public sealed class MapTileProxyService : IMapTileProxyService
 
         var requestUri = BuildRequestUri(definition, z, x, y, time);
         var client = _httpClientFactory.CreateClient("weather-site:generic");
-        using var response = await client.GetAsync(requestUri, cancellationToken);
+        using var response = await client.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             _logger.LogWarning(
@@ -71,7 +69,7 @@ public sealed class MapTileProxyService : IMapTileProxyService
                 response.StatusCode);
         }
 
-        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var bytes = await ReadBoundedContentAsync(response.Content, MaxTileBytes, cancellationToken);
         var result = new MapTileResult(
             bytes,
             response.Content.Headers.ContentType?.MediaType ?? "image/png",
@@ -83,6 +81,36 @@ public sealed class MapTileProxyService : IMapTileProxyService
             Size = Math.Max(1, bytes.Length / 1024)
         });
         return result;
+    }
+
+    private static async Task<byte[]> ReadBoundedContentAsync(
+        HttpContent content,
+        int maxBytes,
+        CancellationToken cancellationToken)
+    {
+        if (content.Headers.ContentLength is long contentLength && contentLength > maxBytes)
+        {
+            throw new HttpRequestException("Upstream tile response exceeded the maximum allowed size.");
+        }
+
+        await using var stream = await content.ReadAsStreamAsync(cancellationToken);
+        using var buffer = new MemoryStream();
+        var scratch = new byte[16 * 1024];
+        while (true)
+        {
+            var read = await stream.ReadAsync(scratch, cancellationToken);
+            if (read == 0)
+            {
+                return buffer.ToArray();
+            }
+
+            if (buffer.Length + read > maxBytes)
+            {
+                throw new HttpRequestException("Upstream tile response exceeded the maximum allowed size.");
+            }
+
+            buffer.Write(scratch, 0, read);
+        }
     }
 
     private static string BuildRequestUri(WmsLayerDefinition definition, int z, int x, int y, string? time)

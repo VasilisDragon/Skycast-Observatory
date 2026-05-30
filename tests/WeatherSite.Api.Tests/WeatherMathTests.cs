@@ -32,4 +32,26 @@ public sealed class WeatherMathTests
         Assert.InRange(parts[0], -20037509, -20037508);
         Assert.InRange(parts[2], 20037508, 20037509);
     }
+
+    [Theory]
+    [InlineData(0, 0, 0)]
+    [InlineData(7, 32, 48)]
+    [InlineData(WebMercatorTileMath.MaxTileZoom, 262143, 262143)]
+    public void ValidateTileCoordinates_AllowsValidTileSpace(int z, int x, int y)
+    {
+        WebMercatorTileMath.ValidateTileCoordinates(z, x, y);
+    }
+
+    [Theory]
+    [InlineData(-1, 0, 0)]
+    [InlineData(WebMercatorTileMath.MaxTileZoom + 1, 0, 0)]
+    [InlineData(1, 2, 0)]
+    [InlineData(1, 0, 2)]
+    [InlineData(7, -1, 48)]
+    [InlineData(7, 32, -1)]
+    public void ValidateTileCoordinates_RejectsInvalidTileSpace(int z, int x, int y)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            WebMercatorTileMath.ValidateTileCoordinates(z, x, y));
+    }
 }
