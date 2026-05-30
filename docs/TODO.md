@@ -8,4 +8,4 @@ Deferred items — not blocking, not on the current path. One line each; expand 
 
 ## Infra / hosting
 
-- **ASP.NET Core forwarded-headers config:** site runs HTTP behind Cloudflare tunnel; Request.IsHttps returns false in app code, so cookie Secure flag and any other protocol-conditional code paths see HTTP. Fix with UseForwardedHeaders middleware accepting XForwardedProto from tunnel IP. One integration test (SaveHomeLocation_SetsSecureCookie_AndCanBeReadBack) currently fails for this reason.
+- **Cloudflare edge HTTP redirect:** intentionally operator-owned. Enable Cloudflare "Always Use HTTPS" or an equivalent redirect rule outside the app deploy path.

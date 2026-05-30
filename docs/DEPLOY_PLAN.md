@@ -115,7 +115,49 @@ Without this module, `preloadEnabled=True` is silently ignored and the app still
 
 ---
 
-## 4. Snapshot current production
+## 4. Production path and origin gate
+
+The IIS site should serve a clean publish directory, not a repo `bin\Release\...\publish`
+folder. Current production should be normalized to `C:\inetpub\weathersite` (or another
+operator-owned production-only path) before the swap below.
+
+Run in elevated PowerShell:
+
+```powershell
+Import-Module WebAdministration
+
+# Confirm the app is not pointed at a source/build tree.
+(Get-WebSite -Name weathersite).PhysicalPath
+
+# Keep the app warm.
+Set-ItemProperty -Path "IIS:\AppPools\weathersite" -Name startMode -Value AlwaysRunning
+Set-WebConfigurationProperty `
+    -Filter "/system.applicationHost/sites/site[@name='weathersite']/application[@path='/']" `
+    -Name preloadEnabled `
+    -Value True
+
+# Origin gate: only the Cloudflare tunnel host should reach this IIS site.
+# The app separately ignores CF-Connecting-IP unless this host delivered it.
+& "$env:windir\system32\inetsrv\appcmd.exe" unlock config /section:system.webServer/security/ipSecurity
+Set-WebConfigurationProperty `
+    -PSPath "IIS:\Sites\weathersite" `
+    -Filter "system.webServer/security/ipSecurity" `
+    -Name allowUnlisted `
+    -Value False
+& "$env:windir\system32\inetsrv\appcmd.exe" set config "weathersite" `
+    -section:system.webServer/security/ipSecurity `
+    /+"[ipAddress='192.168.1.102',allowed='True']" `
+    /commit:apphost
+```
+
+Local self-requests can still bypass this as machine-local traffic; verify from a
+non-tunnel LAN host if you need to prove the deny path. If Windows Firewall is later
+enabled on the Private profile, also add an inbound TCP 8080 allow rule scoped to
+`192.168.1.102`.
+
+---
+
+## 5. Snapshot current production
 
 Belt-and-suspenders rollback. Take the snapshot **before** the publish overwrites anything.
 
@@ -123,7 +165,7 @@ Belt-and-suspenders rollback. Take the snapshot **before** the publish overwrite
 # Find the IIS site's physical path (one-time lookup)
 powershell.exe "(Get-WebSite -Name weathersite).PhysicalPath"
 
-# Suppose it returns: C:\inetpub\weathersite
+# Expected: C:\inetpub\weathersite
 # Set a stamp for filenames
 STAMP=$(date +%Y%m%d-%H%M%S)
 
@@ -140,14 +182,14 @@ powershell.exe "(Get-ChildItem 'C:\inetpub\weathersite-snapshot-$STAMP' -Recurse
 
 ---
 
-## 5. Build the publish bundle (to staging, NOT to IIS)
+## 6. Build the publish bundle (to staging, NOT to IIS)
 
 ```bash
 # Clean staging directory
 rm -rf publish-staging
 
 # Publish in Release.
-# This triggers BuildFrontendForPublish: npm install + npm run build inside src/WeatherSite.Web,
+# This triggers BuildFrontendForPublish: npm ci + npm run build inside src/WeatherSite.Web,
 # RestoreBasemapDataIntoWwwroot: copies pmtiles into wwwroot,
 # SyncFrontendAssetsIntoPublishDirectory: copies wwwroot/* into <publish>/wwwroot
 dotnet publish src/WeatherSite.Api -c Release -o publish-staging
@@ -167,20 +209,25 @@ If `wwwroot/index.html` is missing or `wwwroot/assets/` has no JS bundle, the fr
 
 ---
 
-## 6. Swap
+## 7. Swap
 
 ```bash
-# 6a. Stop the app pool (graceful drain)
+# 7a. Stop the app pool (graceful drain)
 powershell.exe "Stop-WebAppPool -Name weathersite"
 
 # Wait until it's actually Stopped
 powershell.exe "while ((Get-WebAppPoolState -Name weathersite).Value -ne 'Stopped') { Start-Sleep -Milliseconds 500 }"
 
-# 6b. Mirror the staging bundle into the IIS path.
+# 7b. Mirror the staging bundle into the IIS path.
 # /MIR removes any file in the destination that isn't in source — that's intentional, gives a clean state.
 powershell.exe "robocopy 'publish-staging' 'C:\inetpub\weathersite' /MIR /XJ /NFL /NDL /NP"
 
-# 6c. Start the app pool
+# The app pool needs write access for DPAPI-protected data-protection keys.
+powershell.exe "icacls 'C:\inetpub\weathersite\App_Data' /grant 'IIS AppPool\WeatherSite:(OI)(CI)(M)'"
+
+# 7c. Stamp Production into ANCM web.config, point IIS at the clean path, then start.
+powershell.exe "$path='C:\inetpub\weathersite\web.config'; [xml]$xml=Get-Content $path; $asp=$xml.configuration.location.'system.webServer'.aspNetCore; if ($null -eq $asp.environmentVariables) { $asp.AppendChild($xml.CreateElement('environmentVariables')) | Out-Null }; $envs=$asp.environmentVariables; $existing=$envs.environmentVariable | Where-Object { $_.name -eq 'ASPNETCORE_ENVIRONMENT' }; if ($null -eq $existing) { $existing=$xml.CreateElement('environmentVariable'); $existing.SetAttribute('name','ASPNETCORE_ENVIRONMENT'); $envs.AppendChild($existing) | Out-Null }; $existing.SetAttribute('value','Production'); $xml.Save($path)"
+powershell.exe "Set-ItemProperty 'IIS:\Sites\weathersite' -Name physicalPath -Value 'C:\inetpub\weathersite'"
 powershell.exe "Start-WebAppPool -Name weathersite"
 
 # Preload (3a) should warm it up automatically; give it a few seconds
@@ -189,7 +236,7 @@ sleep 5
 
 ---
 
-## 7. Smoke test
+## 8. Smoke test
 
 Hit the live URL through Cloudflare. Each of these should return 200 + non-trivial content.
 
@@ -213,6 +260,25 @@ curl -sS -o /dev/null -w "%{http_code} %{size_download}b\n" "https://weather.vas
 curl -sS -o /dev/null -w "%{http_code} %{size_download}b\n" -I https://weather.vasilis.club/tiles/basemaps/world.pmtiles
 ```
 
+Security/header checks:
+
+```bash
+# No production timing disclosure.
+curl -sS -D - -o /dev/null https://weather.vasilis.club/api/weather/bundle?zip=60601 | grep -i "server-timing" && exit 1
+
+# CSP should stay same-origin for app/API connections.
+curl -sS -D - -o /dev/null https://weather.vasilis.club/ | grep -i "content-security-policy"
+
+# Stray and server-side artifacts should not be public.
+curl -sS -o /dev/null -w "%{http_code}\n" https://weather.vasilis.club/test-write.txt
+curl -sS -o /dev/null -w "%{http_code}\n" https://weather.vasilis.club/WeatherSite.Api.pdb
+curl -sS -o /dev/null -w "%{http_code}\n" https://weather.vasilis.club/App_Data/DataProtectionKeys/probe.xml
+
+# Input validation should stop at the app, not fan out upstream.
+curl -sS -o /dev/null -w "%{http_code}\n" "https://weather.vasilis.club/api/maps/tiles/opengeo/local-radar-klot/19/0/0.png"
+curl -sS -o /dev/null -w "%{http_code}\n" "https://weather.vasilis.club/api/aviation/pireps?lat=91&lon=0"
+```
+
 Then eyeball the live site in a browser. Walk:
 - `/` — ZIP entry, save, dashboard renders, current conditions populated.
 - `/?aviation=KJFK#explorer` — aviation overlay opens on the existing map.
@@ -221,7 +287,7 @@ Then eyeball the live site in a browser. Walk:
 
 ---
 
-## 8. Rollback (only if smoke test fails)
+## 9. Rollback (only if smoke test fails)
 
 ```bash
 # Same shape as section 6, source = the snapshot taken in section 4
@@ -235,7 +301,7 @@ Then debug from the staging bundle, not from live.
 
 ---
 
-## 9. Post-deploy
+## 10. Post-deploy
 
 - **Tail logs** for ~10 minutes to catch first-request errors that smoke missed:
   ```bash

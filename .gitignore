@@ -41,6 +41,7 @@ publish-staging/
 src/WeatherSite.Api/wwwroot/assets/
 src/WeatherSite.Api/wwwroot/tiles/
 src/WeatherSite.Api/wwwroot/index.html
+src/WeatherSite.Api/wwwroot/test-*.txt
 
 # Large regenerable data (rebuilt via scripts/)
 *.pmtiles
