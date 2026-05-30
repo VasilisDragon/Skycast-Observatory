@@ -13,6 +13,7 @@ using WeatherSite.Api.Utilities;
 using Microsoft.Extensions.Primitives;
 
 var builder = WebApplication.CreateBuilder(args);
+var trustedTunnelProxyAddress = IPAddress.Parse("192.168.1.102");
 var weatherSiteConfiguration = builder.Configuration.GetSection(WeatherSiteOptions.SectionName);
 var dataProtectionKeysPath = weatherSiteConfiguration.GetValue<string>(nameof(WeatherSiteOptions.DataProtectionKeysPath))
     ?? "App_Data/DataProtectionKeys";
@@ -67,7 +68,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     // restricts trust to 127.0.0.1 and silently drops the headers from
     // any non-loopback proxy, leaving Request.IsHttps=false and the
     // rate-limit partition keyed on the tunnel IP.
-    options.KnownProxies.Add(IPAddress.Parse("192.168.1.102"));
+    options.KnownProxies.Add(trustedTunnelProxyAddress);
     options.ForwardLimit = 1;
 });
 builder.Services.AddRateLimiter(options =>
@@ -84,7 +85,7 @@ builder.Services.AddRateLimiter(options =>
     };
     options.AddPolicy("weather-api", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: GetClientAddress(httpContext),
+            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedTunnelProxyAddress),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = apiRequestsPerMinute,
@@ -94,7 +95,7 @@ builder.Services.AddRateLimiter(options =>
             }));
     options.AddPolicy("tile-proxy", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: GetClientAddress(httpContext),
+            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedTunnelProxyAddress),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = tileRequestsPerMinute,
@@ -104,7 +105,7 @@ builder.Services.AddRateLimiter(options =>
             }));
     options.AddPolicy("aviation-point", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: GetClientAddress(httpContext),
+            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedTunnelProxyAddress),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = aviationPointRequestsPerMinute,
@@ -114,7 +115,7 @@ builder.Services.AddRateLimiter(options =>
             }));
     options.AddPolicy("aviation-poly", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: GetClientAddress(httpContext),
+            partitionKey: ClientAddressResolver.GetClientAddress(httpContext, trustedTunnelProxyAddress),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = aviationPolyRequestsPerMinute,
@@ -304,22 +305,6 @@ app.MapFallback(async context =>
     var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
     await context.Response.SendFileAsync(indexPath);
 });
-
-static string GetClientAddress(HttpContext context)
-{
-    // Cloudflare always sets CF-Connecting-IP at its edge and overwrites
-    // any client-supplied value, so it is unforgeable once KnownProxies
-    // restricts which hop can deliver it. Prefer it as the rate-limit
-    // partition key so each public client gets its own bucket; without
-    // this, every internet client falls into the tunnel's IP partition
-    // and the four rate-limit policies become global request budgets.
-    if (context.Request.Headers.TryGetValue("CF-Connecting-IP", out var cfConnectingIp)
-        && !StringValues.IsNullOrEmpty(cfConnectingIp))
-    {
-        return cfConnectingIp.ToString();
-    }
-    return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-}
 
 app.Run();
 
